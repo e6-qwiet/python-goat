@@ -1,56 +1,41 @@
 ---
 # This workflow integrates qwiet.ai preZero with GitHub
 # Visit https://docs.shiftleft.io for help
-name: qwiet.ai
+name: QwietAI-PreZero-Scan
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
 
 on:
   pull_request:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
 
 jobs:
   NextGen-Static-Analysis:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Download ShiftLeft CLI
-      run: |
-        curl https://cdn.shiftleft.io/download/sl > ${GITHUB_WORKSPACE}/sl && chmod a+rx ${GITHUB_WORKSPACE}/sl
-
-    - name: preZero Static Analysis
+    - uses: actions/checkout@v4
+  
+    - name: Python Dependency build
       run: |
         pip install -r requirements.txt
 
-        ${GITHUB_WORKSPACE}/sl --version
-        ${GITHUB_WORKSPACE}/sl analyze --strict --wait \
-          --app QwietAI-python-GH \
-          --tag branch=${{ github.head_ref }} \
-          --container 18fgsa/s3-resource
-      env:
-        SHIFTLEFT_ACCESS_TOKEN: ${{ secrets.SHIFTLEFT_ACCESS_TOKEN }}
-        SHIFTLEFT_API_HOST: www.shiftleft.io
-        SHIFTLEFT_GRPC_TELEMETRY_HOST: telemetry.shiftleft.io:443
-        SHIFTLEFT_GRPC_API_HOST: api.shiftleft.io:443
+    - name: Qwiet-AllInOne-Scan
+      uses: elangosenthilnathan/Qwiet-preZero@main
+      with:
+        shiftleft-access-token: ${{ secrets.SHIFTLEFT_ACCESS_TOKEN }}
+        excludeRegex: ".*(test|Readmes).*$"
+        importGitHub: false
+        verbose: false
+        strict: false
+        wait: true
+        timeout: 30m
 
-  Build-Rules:
-    runs-on: ubuntu-latest
-    permissions: write-all
-    needs: NextGen-Static-Analysis
-    steps:
-    - uses: actions/checkout@v3
-    - name: Download ShiftLeft CLI
-      run: |
-        curl https://cdn.shiftleft.io/download/sl > ${GITHUB_WORKSPACE}/sl && chmod a+rx ${GITHUB_WORKSPACE}/sl
-    - name: Validate Build Rules
-      run: |
-        ${GITHUB_WORKSPACE}/sl check-analysis --app QwietAI-python-GH \
-            --github-pr-number=${{github.event.number}} \
-            --github-pr-user=${{ github.repository_owner }} \
-            --github-pr-repo=${{ github.event.repository.name }} \
-            --github-token=${{ secrets.GITHUB_TOKEN }}
-      env:
-        SHIFTLEFT_ACCESS_TOKEN: ${{ secrets.SHIFTLEFT_ACCESS_TOKEN }}
-        SHIFTLEFT_API_HOST: www.shiftleft.io
-        SHIFTLEFT_GRPC_TELEMETRY_HOST: telemetry.shiftleft.io:443
-        SHIFTLEFT_GRPC_API_HOST: api.shiftleft.io:443
-
+  
 
